@@ -1,27 +1,50 @@
 package main
 
 import (
+	"awesomeProject/handlers"
+	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 )
 
 func main(){
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request){
-		log.Println("Server running...")
-		d, err:= ioutil.ReadAll(r.Body)
+	l := log.New(os.Stdout, "product-api", log.LstdFlags)
+	helloHandler := handlers.NewHello(l)
+	goodByeHandler := handlers.NewGoodBye(l)
+	serveMux := http.NewServeMux()
+	serveMux.Handle("/", helloHandler)
+	serveMux.Handle("/goodbye", goodByeHandler)
+
+	fmt.Println("Server running...")
+	server := http.Server{
+		Addr : ":9000",
+		Handler: serveMux,
+		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  1 * time.Second,
+		WriteTimeout: 1 * time.Second,
+	}
+
+	go func() {
+		err := server.ListenAndServe()
 		if err != nil {
-			http.Error(w, "Bad stuff", http.StatusBadRequest)
-			w.WriteHeader(http.StatusBadRequest)
-			return
+			l.Fatal(err)
 		}
+	}()
 
-		log.Printf("Data: %s\n", d)
-		fmt.Fprintf(w, "Hello %s\n", d)
-	})
+	//handle system interruptions
+	signChan := make(chan os.Signal)
+	signal.Notify(signChan, os.Interrupt)
+	signal.Notify(signChan, os.Kill)
 
-	http.ListenAndServe(":9000", nil)
+	sig := <- signChan
+	l.Println("Receiving terminate, graceful shutdown...", sig)
+
+	timeOutContext, _ := context.WithTimeout(context.Background(), 30 * time.Second)
+	server.Shutdown(timeOutContext)
 }
 
 
