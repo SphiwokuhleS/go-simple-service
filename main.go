@@ -13,13 +13,10 @@ import (
 
 func main(){
 	l := log.New(os.Stdout, "product-api", log.LstdFlags)
-	helloHandler := handlers.NewHello(l)
-	goodByeHandler := handlers.NewGoodBye(l)
+	productHandler := handlers.NewProducts(l)
 	serveMux := http.NewServeMux()
-	serveMux.Handle("/", helloHandler)
-	serveMux.Handle("/goodbye", goodByeHandler)
+	serveMux.Handle("/", productHandler)
 
-	fmt.Println("Server running...")
 	server := http.Server{
 		Addr : ":9000",
 		Handler: serveMux,
@@ -29,6 +26,7 @@ func main(){
 	}
 
 	go func() {
+		fmt.Println("Server running...")
 		err := server.ListenAndServe()
 		if err != nil {
 			l.Fatal(err)
@@ -40,8 +38,7 @@ func main(){
 	signal.Notify(signChan, os.Interrupt)
 	signal.Notify(signChan, os.Kill)
 
-	sig := <- signChan
-	l.Println("Receiving terminate, graceful shutdown...", sig)
+	l.Println("Receiving terminate, graceful shutdown...", <- signChan)
 
 	timeOutContext, _ := context.WithTimeout(context.Background(), 30 * time.Second)
 	server.Shutdown(timeOutContext)
